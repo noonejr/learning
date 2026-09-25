@@ -11,3 +11,6 @@ wheels/
 .env
 .DS_Store
 static-analysis.datadog.yml
+
+# Local agent settings
+.claude/settings.local.json
