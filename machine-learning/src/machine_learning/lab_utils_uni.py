@@ -13,6 +13,7 @@ import numpy as np
 from IPython.display import display
 from ipywidgets import Image, IntSlider, VBox
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.ticker import MaxNLocator
 
 dlblue, dlorange, dldarkred, dlmagenta, dlpurple = "#0096ff", "#FF9300", "#C00000", "#FF40FF", "#7030A0"
 dlcolors = [dlblue, dlorange, dldarkred, dlmagenta, dlpurple]
@@ -140,6 +141,116 @@ def plt_stationary(x_train, y_train):
         return fig
 
     _show(draw, w=(200, -100, 500, 1), b=(-100, -250, 350, 1), rotate=(-120, -180, 180, 10))
+
+
+def plt_house_x(x, y, f_wb=None, ax=None):
+    """Housing data scatter, optionally with a prediction line (used standalone, no cost lines)."""
+    if ax is None:
+        _, ax = plt.subplots(1, 1)
+    ax.scatter(x, y, marker="x", c="r", label="Actual Value")
+    if f_wb is not None:
+        ax.plot(x, f_wb, c=dlblue, label="Our Prediction")
+    ax.set(title="Housing Prices", ylabel="Price (in 1000s of dollars)", xlabel="Size (1000 sqft)")
+    ax.legend()
+
+
+def _inbounds(a, b, xlim, ylim):
+    (xlow, xhigh), (ylow, yhigh) = xlim, ylim
+    ax_, ay_ = a
+    bx_, by_ = b
+    return xlow < ax_ < xhigh and xlow < bx_ < xhigh and ylow < ay_ < yhigh and ylow < by_ < yhigh
+
+
+def plt_contour_wgrad(x, y, hist, ax, w_range=[-100, 500, 5], b_range=[-500, 500, 5],
+                       contours=[0.1, 50, 1000, 5000, 10000, 25000, 50000],
+                       resolution=5, w_final=200, b_final=100, step=10):
+    """Cost contour in (w,b) with arrows tracing the gradient descent path in `hist`."""
+    b0, w0 = np.meshgrid(np.arange(*b_range), np.arange(*w_range))
+    z = np.vectorize(lambda w, b: compute_cost(x, y, w, b))(w0, b0)
+
+    CS = ax.contour(w0, b0, z, contours, linewidths=2, colors=dlcolors)
+    ax.clabel(CS, inline=1, fmt="%1.0f", fontsize=10)
+    ax.set(title="Contour plot of cost J(w,b), vs b,w with path of gradient descent", xlabel="w", ylabel="b")
+    ax.hlines(b_final, ax.get_xlim()[0], w_final, lw=2, color=dlpurple, ls="dotted")
+    ax.vlines(w_final, ax.get_ylim()[0], b_final, lw=2, color=dlpurple, ls="dotted")
+
+    base = hist[0]
+    for point in hist[0::step]:
+        edist = np.sqrt((base[0] - point[0]) ** 2 + (base[1] - point[1]) ** 2)
+        if edist > resolution or point == hist[-1]:
+            if _inbounds(point, base, ax.get_xlim(), ax.get_ylim()):
+                ax.annotate("", xy=point, xytext=base, xycoords="data",
+                            arrowprops={"arrowstyle": "->", "color": "r", "lw": 3})
+            base = point
+
+
+def plt_divergence(p_hist, J_hist, x_train, y_train):
+    """Cost-vs-w curve and 3D cost surface, each overlaid with a diverging descent path."""
+    w_path = np.array([p[0] for p in p_hist])
+    b_path = np.array([p[1] for p in p_hist])
+    j_path = np.array(J_hist)
+
+    fig = plt.figure(figsize=(12, 5))
+    plt.subplots_adjust(wspace=0)
+    gs = fig.add_gridspec(1, 5)
+    fig.suptitle("Cost escalates when learning rate is too large")
+
+    ax = fig.add_subplot(gs[:2])
+    fix_b = 100
+    w_array = np.arange(-70000, 70000, 1000, dtype="int64")
+    cost = np.vectorize(lambda w: compute_cost(x_train, y_train, w, fix_b))(w_array)
+    ax.plot(w_array, cost)
+    ax.plot(w_path, j_path, c=dlmagenta)
+    ax.set(title="Cost vs w, b set to 100", ylabel="Cost", xlabel="w")
+    ax.xaxis.set_major_locator(MaxNLocator(2))
+
+    tmp_b, tmp_w = np.meshgrid(np.arange(-35000, 35000, 500, dtype="int64"),
+                                np.arange(-70000, 70000, 500, dtype="int64"))
+    z = np.vectorize(lambda w, b: compute_cost(x_train, y_train, w, b))(tmp_w, tmp_b)
+
+    ax = fig.add_subplot(gs[2:], projection="3d")
+    ax.plot_surface(tmp_w, tmp_b, z, alpha=0.3, color=dlblue)
+    ax.xaxis.set_major_locator(MaxNLocator(2))
+    ax.yaxis.set_major_locator(MaxNLocator(2))
+    ax.set(xlabel="w", ylabel="b")
+    ax.set_zlabel("\ncost")
+    ax.set_title("Cost vs (b, w)")
+    ax.view_init(elev=20.0, azim=-65)
+    ax.plot(w_path, b_path, j_path, c=dlmagenta)
+
+
+def _add_line(dj_dx, x1, y1, d, ax):
+    """Tangent line + partial-derivative label at (x1,y1), used by plt_gradients."""
+    x = np.linspace(x1 - d, x1 + d, 50)
+    ax.scatter(x1, y1, color=dlblue, s=50)
+    ax.plot(x, dj_dx * (x - x1) + y1, "--", c=dldarkred, zorder=10, linewidth=1)
+    xoff = 30 if x1 == 200 else 10
+    ax.annotate(r"$\frac{\partial J}{\partial w}$ =%d" % dj_dx, fontsize=14, xy=(x1, y1),
+                xytext=(xoff, 10), textcoords="offset points", arrowprops=dict(arrowstyle="->"))
+
+
+def plt_gradients(x_train, y_train, f_compute_cost, f_compute_gradient):
+    """Cost-vs-w with gradient tangent lines (b fixed), plus a (w,b) gradient quiver plot."""
+    fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+
+    fix_b = 100
+    w_array = np.linspace(0, 400, 50)
+    cost = np.vectorize(lambda w: f_compute_cost(x_train, y_train, w, fix_b))(w_array)
+    ax[0].plot(w_array, cost, linewidth=1)
+    ax[0].set(title="Cost vs w, with gradient; b set to 100", ylabel="Cost", xlabel="w")
+    for tmp_w in (100, 200, 300):
+        dj_dw, _ = f_compute_gradient(x_train, y_train, tmp_w, fix_b)
+        j = f_compute_cost(x_train, y_train, tmp_w, fix_b)
+        _add_line(dj_dw, tmp_w, j, 30, ax[0])
+
+    tmp_b, tmp_w = np.meshgrid(np.linspace(-200, 200, 10), np.linspace(-100, 600, 10))
+    U, V = np.vectorize(lambda w, b: f_compute_gradient(x_train, y_train, w, b))(tmp_w, tmp_b)
+    color_array = np.sqrt(((V + 2) / 2) ** 2 + ((U + 2) / 2) ** 2)
+
+    ax[1].set_title("Gradient shown in quiver plot")
+    Q = ax[1].quiver(tmp_w, tmp_b, U, V, color_array, units="width")
+    ax[1].quiverkey(Q, 0.9, 0.9, 2, r"$2 \frac{m}{s}$", labelpos="E", coordinates="figure")
+    ax[1].set(xlabel="w", ylabel="b")
 
 
 def soup_bowl():
