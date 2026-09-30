@@ -16,7 +16,9 @@ machine-learning/
         |-- __init__.py
         |-- lab_utils_uni.py    # recreated course plotting helpers (single variable)
         `-- notebooks/
-            `-- 01-cost-function.ipynb   # C1 W1 Lab03: cost function
+            |-- 01-cost-function.ipynb                    # C1 W1 Lab03: cost function
+            |-- 02-gradient-divergence.ipynb              # C1 W1 Lab04: gradient descent
+            `-- 03-multi-variable-linear-regression.ipynb # C1 W2 Lab02: multiple variable linear regression
 ```
 
 ## Contents
