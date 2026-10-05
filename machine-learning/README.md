@@ -16,9 +16,10 @@ machine-learning/
         |-- __init__.py
         |-- lab_utils_uni.py    # recreated course plotting helpers (single variable)
         `-- notebooks/
-            |-- 01-cost-function.ipynb                    # C1 W1 Lab03: cost function
-            |-- 02-gradient-divergence.ipynb              # C1 W1 Lab04: gradient descent
-            `-- 03-multi-variable-linear-regression.ipynb # C1 W2 Lab02: multiple variable linear regression
+            `-- 01-supervised-machine-learning/   # one folder per course
+                |-- 01-cost-function.ipynb                    # C1 W1 Lab03: cost function
+                |-- 02-gradient-divergence.ipynb              # C1 W1 Lab04: gradient descent
+                `-- 03-multi-variable-linear-regression.ipynb # C1 W2 Lab02: multiple variable linear regression
 ```
 
 ## Contents
@@ -44,5 +45,5 @@ On a Colab kernel, the notebook downloads `lab_utils_uni.py` from GitHub, so pus
 
 ## Guidelines
 
-- New lab: add `notebooks/NN-topic.ipynb`; put reusable plotting in `lab_utils_*.py` next to `lab_utils_uni.py`.
+- New lab: add `notebooks/<course>/NN-topic.ipynb`; put reusable plotting in `lab_utils_*.py` next to `lab_utils_uni.py`.
 - Add dependencies with `uv add <pkg>`.
